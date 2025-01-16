@@ -41,3 +41,58 @@ fn concat_fastq_files(input_dir: &Path, output_path: &Path) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{assembly_graph::AssemblyGraph, concat_fastq_files};
+    use std::path::Path;
+
+    #[test]
+    fn can_generate_assembly_graph() {
+        let input_dir_path = Path::new("test/data/fastqs");
+        let concatenated_fastq_path = Path::new("test/data/concatenated.fastq");
+        let graph_output_path = Path::new("test/output");
+        {
+            //delete the output graph file if it already exists
+            let _ = std::fs::remove_file(graph_output_path);
+            assert!(
+                !graph_output_path.exists(),
+                "graph file could notn be deleted"
+            );
+
+            //delete the output graph file if it already exists
+            let _ = std::fs::remove_file(concatenated_fastq_path);
+            assert!(
+                !concatenated_fastq_path.exists(),
+                "concatenated read file could notn be deleted"
+            );
+        }
+        {
+            concat_fastq_files(input_dir_path, concatenated_fastq_path);
+            let assembly_graph = AssemblyGraph::new(graph_output_path, 10)
+                .expect("could not generate assembly graph");
+
+            assembly_graph
+                .write_wg_file(Path::new("tests/output"))
+                .expect("could not write wg file");
+
+            assert!(graph_output_path.exists(), "graph file was not created");
+        }
+        {
+            //cleanup after the test
+            //delete the output graph file if it already exists
+            let _ = std::fs::remove_file(graph_output_path);
+            assert!(
+                !graph_output_path.exists(),
+                "graph file could notn be deleted"
+            );
+
+            //delete the output graph file if it already exists
+            let _ = std::fs::remove_file(concatenated_fastq_path);
+            assert!(
+                !concatenated_fastq_path.exists(),
+                "concatenated read file could notn be deleted"
+            );
+        }
+    }
+}
