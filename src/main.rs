@@ -4,7 +4,11 @@ mod program_args;
 use assembly_graph::AssemblyGraph;
 use clap::Parser;
 use program_args::ProgramArgs;
-use std::{fs::File, io, path::Path};
+use std::{
+    fs::{self, File},
+    io,
+    path::Path,
+};
 
 fn main() {
     let args = ProgramArgs::parse();
@@ -22,7 +26,7 @@ fn main() {
 }
 
 fn concat_fastq_files(input_dir: &Path, output_path: &Path) {
-    let mut output = File::create(output_path).expect("could not create output fastq file");
+    let mut output_file = File::create(output_path).expect("could not create output fastq file");
     //iterate over all .fq files in input_dir
     for entry in input_dir
         .read_dir()
@@ -33,12 +37,29 @@ fn concat_fastq_files(input_dir: &Path, output_path: &Path) {
             .expect("could not read path to file in input directory")
             .path();
         if path.is_file() {
-            let file_name = path.file_name().unwrap().to_str().unwrap();
-            if file_name.ends_with(".fq") {
-                let mut input_file = File::open(file_name).expect("unable to open fastq file");
-                io::copy(&mut input_file, &mut output).expect("unable to add fastq to output file");
+            if is_fastq_file(&path) {
+                let mut input_file = File::open(path).expect("unable to open fastq file");
+                io::copy(&mut input_file, &mut output_file)
+                    .expect("unable to add fastq to output file");
             }
         }
+    }
+
+    debug_assert!(
+        file_contains_data(&output_path),
+        "output fastq file is empty"
+    );
+}
+
+fn is_fastq_file(path: &Path) -> bool {
+    let file_name = path.file_name().unwrap().to_str().unwrap();
+    file_name.ends_with(".fq") || file_name.ends_with("fastq")
+}
+
+fn file_contains_data(path: &Path) -> bool {
+    match fs::metadata(path) {
+        Ok(metadata) => metadata.len() > 0,
+        Err(_) => false,
     }
 }
 
@@ -69,7 +90,7 @@ mod tests {
         }
         {
             concat_fastq_files(input_dir_path, concatenated_fastq_path);
-            let assembly_graph = AssemblyGraph::new(graph_output_path, 10)
+            let assembly_graph = AssemblyGraph::new(concatenated_fastq_path, 10)
                 .expect("could not generate assembly graph");
 
             assembly_graph
