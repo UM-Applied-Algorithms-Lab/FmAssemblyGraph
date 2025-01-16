@@ -10,11 +10,10 @@ fn main() {
     let args = ProgramArgs::parse();
 
     let input_dir_path = Path::new(args.input_dir());
-    let read_output_path = Path::new(args.output_path());
-    concat_fastq_files(input_dir_path, read_output_path);
+    let graph_output_path = Path::new(args.output_path());
+    let tmp_concat_fastq_path = Path::new(args.temp_concat_fastq_path());
 
-    let assembly_graph = AssemblyGraph::new(read_output_path, args.kmer_len())
-        .expect("could not generate assembly graph");
+    concat_fastq_files(input_dir_path, tmp_concat_fastq_path);
 
     assembly_graph
         .write_wg_file(Path::new(args.output_path()))

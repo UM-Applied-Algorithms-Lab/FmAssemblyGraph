@@ -10,6 +10,9 @@ pub(crate)struct ProgramArgs {
 
     #[arg(short, long)]
     kmer_len: usize,
+    
+    #[arg(short,long, default_value_t = String::from("/tmp/tmp_concat.fastq"))]
+    temp_concat_fastq_path: String,
 
 }
 
@@ -24,5 +27,9 @@ impl ProgramArgs {
 
     pub(crate) fn kmer_len(&self) -> usize {
         self.kmer_len
+    }
+    
+    pub(crate) fn temp_concat_fastq_path(&self) -> &str {
+        &self.temp_concat_fastq_path
     }
 }
