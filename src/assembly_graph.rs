@@ -108,7 +108,7 @@ impl AssemblyGraph {
     }
 
     //function that returns an iterator of (u64, u64, u64) made from the graph_edges hashmap
-    pub(crate) fn write_wg_file(&self, output_path: &Path) -> anyhow::Result<()> {
+    pub(crate) fn write_wg_file(&self, output_path: &Path) -> anyhow::Result<&Self> {
         let mut string_id_map: StringIdMap = StringIdMap::new();
 
         let mut output = File::create(output_path)?;
@@ -124,6 +124,6 @@ impl AssemblyGraph {
             )?;
         }
 
-        return Ok(());
+        return Ok(&self);
     }
 }

@@ -15,8 +15,9 @@ fn main() {
 
     concat_fastq_files(input_dir_path, tmp_concat_fastq_path);
 
-    assembly_graph
-        .write_wg_file(Path::new(args.output_path()))
+    let _assembly_graph = AssemblyGraph::new(tmp_concat_fastq_path, args.kmer_len())
+        .expect("could not generate assembly graph")
+        .write_wg_file(graph_output_path)
         .expect("could not write wg file");
 }
 
