@@ -25,6 +25,7 @@ fn main() {
         .expect("could not write wg file");
 }
 
+/// concatenates all fastq files in the input directory into a single fastq file
 fn concat_fastq_files(input_dir: &Path, output_path: &Path) {
     let mut output_file = File::create(output_path).expect("could not create output fastq file");
     //iterate over all .fq files in input_dir
@@ -51,6 +52,7 @@ fn concat_fastq_files(input_dir: &Path, output_path: &Path) {
     );
 }
 
+/// checks if the file is a fastq file by checking the file extension
 fn is_fastq_file(path: &Path) -> bool {
     let file_name = path.file_name().unwrap().to_str().unwrap();
     file_name.ends_with(".fq") || file_name.ends_with("fastq")
