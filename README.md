@@ -4,13 +4,3 @@ Generates an assembly graph from an input fastq file using an fm-index to genera
 
 
 
-
-
-
-
-
-
-
-This shouldn't be here! Todo: remove later!
-
-
