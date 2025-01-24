@@ -52,6 +52,7 @@ fn concat_fastq_files(input_dir: &Path, output_path: &Path) {
     );
 }
 
+/// checks if the file is a fastq file by checking the file extension
 fn is_fastq_file(path: &Path) -> bool {
     let file_name = path.file_name().unwrap().to_str().unwrap();
     file_name.ends_with(".fq") || file_name.ends_with("fastq")
