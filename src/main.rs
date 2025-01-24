@@ -68,48 +68,51 @@ mod tests {
     use crate::{assembly_graph::AssemblyGraph, concat_fastq_files};
     use std::path::Path;
 
+    const TEST_DATA_DIR: &str = "test/data";
+    const TEST_OUTPUT_DIR: &str = "test/output";
+
     #[test]
     fn can_generate_assembly_graph() {
-        let input_dir_path = Path::new("test/data/fastqs");
-        let concatenated_fastq_path = Path::new("test/data/concatenated.fastq");
-        let graph_output_path = Path::new("test/output");
+        let input_dir_path = Path::new(TEST_DATA_DIR).join("fastqs");
+        let concatenated_fastq_path = Path::new(TEST_DATA_DIR).join("concatenated.fastq");
+        let graph_output_path = Path::new(TEST_OUTPUT_DIR).join("graph.asg");
         {
             //delete the output graph file if it already exists
-            let _ = std::fs::remove_file(graph_output_path);
+            let _ = std::fs::remove_file(graph_output_path.as_path());
             assert!(
-                !graph_output_path.exists(),
+                !graph_output_path.as_path().exists(),
                 "graph file could notn be deleted"
             );
 
             //delete the output graph file if it already exists
-            let _ = std::fs::remove_file(concatenated_fastq_path);
+            let _ = std::fs::remove_file(concatenated_fastq_path.as_path());
             assert!(
                 !concatenated_fastq_path.exists(),
                 "concatenated read file could notn be deleted"
             );
         }
         {
-            concat_fastq_files(input_dir_path, concatenated_fastq_path);
-            let assembly_graph = AssemblyGraph::new(concatenated_fastq_path, 10)
+            concat_fastq_files(input_dir_path.as_path(), concatenated_fastq_path.as_path());
+            let assembly_graph = AssemblyGraph::new(concatenated_fastq_path.as_path(), 10)
                 .expect("could not generate assembly graph");
 
             assembly_graph
-                .write_wg_file(Path::new("tests/output"))
-                .expect("could not write wg file");
+                .write_wg_file(graph_output_path.as_path())
+                .expect("could not write asg file");
 
             assert!(graph_output_path.exists(), "graph file was not created");
         }
         {
             //cleanup after the test
             //delete the output graph file if it already exists
-            let _ = std::fs::remove_file(graph_output_path);
+            let _ = std::fs::remove_file(graph_output_path.as_path());
             assert!(
-                !graph_output_path.exists(),
+                !graph_output_path.as_path().exists(),
                 "graph file could notn be deleted"
             );
 
             //delete the output graph file if it already exists
-            let _ = std::fs::remove_file(concatenated_fastq_path);
+            let _ = std::fs::remove_file(concatenated_fastq_path.as_path());
             assert!(
                 !concatenated_fastq_path.exists(),
                 "concatenated read file could notn be deleted"
