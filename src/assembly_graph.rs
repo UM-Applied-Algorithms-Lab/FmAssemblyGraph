@@ -23,9 +23,9 @@ impl StringIdMap {
         if self.map.contains_key(string) {
             return self.map[string];
         } else {
-            let string_id = self.map.insert(string.clone(), self.current_string_id);
+            let _ = self.map.insert(string.clone(), self.current_string_id);
             self.current_string_id += 1;
-            return string_id.expect("unable to find given node id");
+            return self.map[string];
         }
     }
 }
