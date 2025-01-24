@@ -25,7 +25,7 @@ impl StringIdMap {
         } else {
             let string_id = self.map.insert(string.clone(), self.current_string_id);
             self.current_string_id += 1;
-            return string_id.unwrap();
+            return string_id.expect("unable to find given node id");
         }
     }
 }
@@ -109,6 +109,12 @@ impl AssemblyGraph {
 
     //function that returns an iterator of (u64, u64, u64) made from the graph_edges hashmap
     pub(crate) fn write_wg_file(&self, output_path: &Path) -> anyhow::Result<&Self> {
+        std::fs::create_dir_all(
+            output_path
+                .parent()
+                .expect("output file does not name a file source"),
+        )
+        .expect("could not create output directory");
         let mut string_id_map: StringIdMap = StringIdMap::new();
 
         let mut output = File::create(output_path)?;
