@@ -43,7 +43,9 @@ impl AssemblyGraph {
     }
 
     pub(crate) fn add_edge(&mut self, string: String, count: u64) {
-        self.graph_edges.insert(string, count);
+        // add the reversed string
+        let reversed = string.chars().rev().collect::<String>();
+        self.graph_edges.insert(reversed, count);
     }
 
     fn build_fm_index(read_set_path: &Path) -> anyhow::Result<FmIndex> {
