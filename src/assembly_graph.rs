@@ -1,13 +1,44 @@
+use std::hash::{BuildHasher, Hasher};
 use std::{collections::HashMap, fs::File, io::Write, path::Path};
 
 use awry::{alphabet::Symbol, fm_index::FmIndex, search::SearchRange};
 
+// Custom hasher with fixed seed
+#[derive(Default)]
+struct FixedHasher(u64);
+
+impl Hasher for FixedHasher {
+    fn finish(&self) -> u64 {
+        self.0
+    }
+
+    fn write(&mut self, bytes: &[u8]) {
+        // Simple deterministic hash function - DJB2 algorithm
+        let mut hash: u64 = 5381;
+        for &byte in bytes {
+            hash = ((hash << 5).wrapping_add(hash)).wrapping_add(byte as u64);
+        }
+        self.0 = hash;
+    }
+}
+
+#[derive(Default)]
+struct FixedBuildHasher;
+
+impl BuildHasher for FixedBuildHasher {
+    type Hasher = FixedHasher;
+
+    fn build_hasher(&self) -> FixedHasher {
+        FixedHasher(123) // Fixed seed
+    }
+}
+
 pub(crate) struct AssemblyGraph {
-    graph_edges: HashMap<String, u64>,
+    graph_edges: HashMap<String, u64, FixedBuildHasher>,
 }
 
 struct StringIdMap {
-    map: HashMap<String, u64>,
+    map: HashMap<String, u64, FixedBuildHasher>,
     current_string_id: u64,
 }
 impl StringIdMap {
@@ -15,7 +46,7 @@ impl StringIdMap {
 
     fn new() -> Self {
         Self {
-            map: HashMap::new(),
+            map: HashMap::with_hasher(FixedBuildHasher),
             current_string_id: Self::STARTING_STRING_ID,
         }
     }
@@ -34,7 +65,7 @@ impl AssemblyGraph {
     const ALPHABET_CHARS: &str = "AGCT";
     pub(crate) fn new(read_set_path: &Path, kmer_len: usize) -> anyhow::Result<Self> {
         let mut assembly_graph = Self {
-            graph_edges: HashMap::new(),
+            graph_edges: HashMap::with_hasher(FixedBuildHasher),
         };
         let fm_index = Self::build_fm_index(read_set_path)?;
 
