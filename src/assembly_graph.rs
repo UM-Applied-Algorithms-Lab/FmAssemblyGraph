@@ -1,80 +1,53 @@
-use std::hash::{BuildHasher, Hasher};
 use std::{collections::HashMap, fs::File, io::Write, path::Path};
 
 use awry::{alphabet::Symbol, fm_index::FmIndex, search::SearchRange};
 
-// Custom hasher with fixed seed
-#[derive(Default)]
-struct FixedHasher(u64);
-
-impl Hasher for FixedHasher {
-    fn finish(&self) -> u64 {
-        self.0
-    }
-
-    fn write(&mut self, bytes: &[u8]) {
-        // Simple deterministic hash function - DJB2 algorithm
-        let mut hash: u64 = 5381;
-        for &byte in bytes {
-            hash = ((hash << 5).wrapping_add(hash)).wrapping_add(byte as u64);
-        }
-        self.0 = hash;
-    }
-}
-
-#[derive(Default)]
-struct FixedBuildHasher;
-
-impl BuildHasher for FixedBuildHasher {
-    type Hasher = FixedHasher;
-
-    fn build_hasher(&self) -> FixedHasher {
-        FixedHasher(123) // Fixed seed
-    }
-}
-
 pub(crate) struct AssemblyGraph {
-    graph_edges: HashMap<String, u64, FixedBuildHasher>,
+    graph_edges: HashMap<String, u64>,
 }
 
 struct StringIdMap {
-    map: HashMap<String, u64, FixedBuildHasher>,
+    map: HashMap<String, u64>,
     current_string_id: u64,
 }
+
 impl StringIdMap {
     const STARTING_STRING_ID: u64 = 2;
 
     fn new() -> Self {
         Self {
-            map: HashMap::with_hasher(FixedBuildHasher),
+            map: HashMap::new(),
             current_string_id: Self::STARTING_STRING_ID,
         }
     }
-    fn get_node_id(&mut self, string: &String) -> u64 {
-        if self.map.contains_key(string) {
-            return self.map[string];
-        } else {
-            let _ = self.map.insert(string.clone(), self.current_string_id);
+
+    fn get_node_id(&mut self, string: &str) -> u64 {
+        // Use entry API for efficiency
+        *self.map.entry(string.to_string()).or_insert_with(|| {
+            let id = self.current_string_id;
             self.current_string_id += 1;
-            return self.map[string];
-        }
+            id
+        })
     }
 }
 
 impl AssemblyGraph {
     const ALPHABET_CHARS: &str = "AGCT";
+
     pub(crate) fn new(read_set_path: &Path, kmer_len: usize) -> anyhow::Result<Self> {
         let mut assembly_graph = Self {
-            graph_edges: HashMap::with_hasher(FixedBuildHasher),
+            graph_edges: HashMap::new(),
         };
         let fm_index = Self::build_fm_index(read_set_path)?;
 
         Self::create_edges(&mut assembly_graph, &fm_index, kmer_len);
-        anyhow::Ok(assembly_graph)
+        Ok(assembly_graph)
     }
 
     pub(crate) fn add_edge(&mut self, string: String, count: u64) {
-        // add the reversed string
+        // IMPORTANT: Store the original string AND reversed string
+        self.graph_edges.insert(string.clone(), count);
+        // Add the reversed string if needed for bidirectional traversal
         let reversed = string.chars().rev().collect::<String>();
         self.graph_edges.insert(reversed, count);
     }
@@ -90,7 +63,7 @@ impl AssemblyGraph {
             remove_intermediate_suffix_array_file: true,
         };
 
-        return awry::fm_index::FmIndex::new(&awry_build_args);
+        awry::fm_index::FmIndex::new(&awry_build_args)
     }
 
     fn create_edges(assembly_graph: &mut AssemblyGraph, fm_index: &FmIndex, kmer_len: usize) {
@@ -115,47 +88,59 @@ impl AssemblyGraph {
         string: String,
         search_range: SearchRange,
     ) {
-        let search_range_len = search_range.clone().len();
-        if search_range_len == 0 {
+        if search_range.is_empty() {
             return;
         }
+
         if string.len() == kmer_len {
-            assembly_graph.add_edge(string, search_range_len);
+            assembly_graph.add_edge(string, search_range.len());
             return;
         }
 
         for c in Self::ALPHABET_CHARS.chars() {
             let next_string = string.clone() + &c.to_string();
-            let search_range = fm_index.update_range_with_symbol(
+            let next_search_range = fm_index.update_range_with_symbol(
                 search_range.clone(),
                 Symbol::new_ascii(fm_index.alphabet(), c),
             );
-            Self::create_edges_recursive(
-                assembly_graph,
-                fm_index,
-                kmer_len,
-                next_string,
-                search_range,
-            );
+
+            // Only recurse if the search range is not empty
+            if !next_search_range.is_empty() {
+                Self::create_edges_recursive(
+                    assembly_graph,
+                    fm_index,
+                    kmer_len,
+                    next_string,
+                    next_search_range,
+                );
+            }
         }
     }
 
-    //function that returns an iterator of (u64, u64, u64) made from the graph_edges hashmap
-    pub(crate) fn write_wg_file(&self, output_path: &Path) -> anyhow::Result<&Self> {
-        std::fs::create_dir_all(
-            output_path
-                .parent()
-                .expect("output file does not name a file source"),
-        )
-        .expect("could not create output directory");
-        let mut string_id_map: StringIdMap = StringIdMap::new();
+    pub(crate) fn write_wg_file(&self, output_path: &Path) -> anyhow::Result<()> {
+        // Create output directory if it doesn't exist
+        if let Some(parent) = output_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
 
+        let mut string_id_map = StringIdMap::new();
         let mut output = File::create(output_path)?;
-        for (string, count) in self.graph_edges.iter() {
+
+        // Collect and sort edges for deterministic output (optional)
+        let mut edges: Vec<_> = self.graph_edges.iter().collect();
+        edges.sort_by(|a, b| a.0.cmp(b.0));
+
+        for (string, count) in edges {
+            // Ensure string is at least length 2 for slicing
+            if string.len() < 2 {
+                continue;
+            }
+
             let from_node_string = string[0..string.len() - 1].to_string();
             let to_node_string = string[1..string.len()].to_string();
             let from_node_id = string_id_map.get_node_id(&from_node_string);
             let to_node_id = string_id_map.get_node_id(&to_node_string);
+
             writeln!(
                 output,
                 "{}\t{}\t{}\t{}",
@@ -163,6 +148,6 @@ impl AssemblyGraph {
             )?;
         }
 
-        return Ok(&self);
+        Ok(())
     }
 }
